@@ -5,11 +5,13 @@ import LogoHeader from "./ui/LogoHeader";
 import LoginForm from "./ui/LoginForm";
 import Divider from "./ui/Divider";
 import ExploreButtons from "./ui/ExploreButtons";
+import {redirectToGoogleLogin} from "@/lib/api/login.api";
 
 
 export default function Login() {
   const handleGoogleLogin = () => {
     console.log("Iniciando sesión con Google...");
+    redirectToGoogleLogin();
     // Aquí iría tu lógica de autenticación
   };
 
