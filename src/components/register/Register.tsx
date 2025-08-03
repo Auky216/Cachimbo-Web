@@ -1,7 +1,8 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuthStore } from '@/store/auth.store';
+import { getRegistrationData } from '@/lib/api/login.api';
 import ProgressHeader from './ui/ProgressHeader';
 import StageStep from './ui/StageStep';
 import YearStep from './ui/YearStep';
@@ -16,10 +17,35 @@ export default function FinalRegister() {
     stage: '', 
     year: 0, 
     career: '', 
-    nickname: '' 
+    nickname: '',
   });
+  const [userName, setUserName] = useState("Usuario");
+  
+  // Mover el hook al nivel superior
+  const { setName, setLastName, setEmail, setUrlPhoto, urlPhoto } = useAuthStore();
 
-  const userName = "Adrian Auqui";
+  // Obtener datos de Google al cargar el componente
+  useEffect(() => {
+    const fetchGoogleData = async () => {
+      try {
+        const googleData = await getRegistrationData();
+        console.log('Datos de Google:', googleData);
+        if (googleData && !googleData.error) {
+          setUserName(`${googleData.name} ${googleData.lastname}`);
+          // Guardar en el store
+          setName(googleData.name);
+          setLastName(googleData.lastname);
+          setEmail(googleData.email);
+          setUrlPhoto(googleData.urlPhoto);
+        }
+      } catch (error) {
+        console.error('Error al obtener datos de Google:', error);
+      }
+    };
+
+    fetchGoogleData();
+  }, [setName, setLastName, setEmail, setUrlPhoto]);
+
   const totalSteps = 5;
 
   const isValid = () => {
@@ -38,7 +64,7 @@ export default function FinalRegister() {
       setStep(step + 1);
     } else {
       console.log('Finalizar registro:', data);
-      // Aquí llamarías a tu API
+      // Aquí llamarías a tu API para completar el registro
     }
   };
 
@@ -80,6 +106,9 @@ export default function FinalRegister() {
         return (
           <WelcomeStep
             nickname={data.nickname}
+            stage={data.stage}
+            career={data.career}
+            userPhoto={urlPhoto} // Usar la variable extraída arriba
           />
         );
       default:
@@ -89,7 +118,6 @@ export default function FinalRegister() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header con Progress */}
       <ProgressHeader
         step={step}
         totalSteps={totalSteps}
@@ -97,12 +125,10 @@ export default function FinalRegister() {
         showBackButton={step > 1}
       />
       
-      {/* Content Area - Flex grow para ocupar espacio disponible */}
       <div className="flex-1 overflow-y-auto">
         {renderStep()}
       </div>
 
-      {/* Footer fijo - Siempre visible */}
       <div className="bg-white border-t border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex justify-end">
           <Button1
