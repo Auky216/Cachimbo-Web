@@ -5,3 +5,9 @@ export function getUserCourses (idUser: string) {
     credentials: 'include'
   }).then(response => response.json());
 }
+
+export function getCourseById (idCourse: string) {
+  return fetch(`${API_URL}/course/${idCourse}`, {
+    credentials: 'include'
+  }).then(response => response.json());
+}

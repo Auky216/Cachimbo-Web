@@ -4,9 +4,9 @@ import { useParams } from "next/navigation";
 
 export default function CoursePage() {
   const params = useParams();
-  const courseId = params.courseId as string;
+  const courseId = params.id as string;
 
-  console.log('Course ID:', courseId); // Para debugging
+  console.log('Course ID:', courseId);
   return (
     <div>
       <DashboardCourse courseId={courseId} />

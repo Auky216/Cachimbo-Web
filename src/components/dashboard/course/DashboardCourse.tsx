@@ -1,6 +1,6 @@
 "use client";   
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { 
   Star, 
@@ -13,12 +13,16 @@ import {
   MoreHorizontal
 } from 'lucide-react';
 
+import { getCourseById } from '@/lib/api/course.api';
+
 const CourseDetailPage = ({ courseId }: { courseId: string }) => {
 
   const [activeTab, setActiveTab] = useState('general');
   const [newComment, setNewComment] = useState('');
   const [rating, setRating] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [courseData, setCourseData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   // You can now use courseId throughout your component
   console.log('Course ID:', courseId);
@@ -68,6 +72,27 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
     }
   ];
 
+
+  useEffect(() => {
+    const loadCourseData = async () => {
+      try {
+        setLoading(true);
+        console.log('Cargando datos del curso con ID:', courseId);
+        const data = await getCourseById(courseId);
+        console.log('Datos del curso:', data);
+        setCourseData(data);
+      } catch (error) {
+        console.error('Error loading course data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (courseId) {
+      loadCourseData();
+    }
+  }, [courseId]);
+
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
   };
@@ -86,16 +111,42 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
     console.log('Favorite toggled:', !isFavorite);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando datos del curso...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!courseData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">No se pudieron cargar los datos del curso</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Course Header */}
       <div className="bg-purple-500 rounded-lg border-2 border-black shadow-[3px_3px_0_0_#000000] p-4 lg:p-6 text-white relative overflow-hidden mb-6">
         <div className="relative z-10 flex justify-between items-start">
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold mb-2">Programación I</h1>
-            <div className="flex items-center text-sm opacity-90">
+            <h1 className="text-xl lg:text-2xl font-bold mb-2">{courseData.name}</h1>
+            <div className="flex items-center text-sm opacity-90 mb-2">
               <Users className="w-4 h-4 mr-1" />
-              <span>629 seguidores</span>
+              <span>{courseData.followers} seguidores</span>
+            </div>
+            {/* Course Rating */}
+            <div className="flex items-center text-sm opacity-90">
+              <Star className="w-4 h-4 mr-1 fill-current text-yellow-300" />
+              <span>{courseData.calification}/5.0</span>
             </div>
           </div>
           <button
@@ -148,11 +199,7 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
           <div className="bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] p-4 lg:p-6">
             <h2 className="text-lg lg:text-xl font-bold mb-4 text-black">Definición</h2>
             <p className="text-gray-700 text-sm lg:text-base leading-relaxed">
-              Es un curso introductorio que forma parte de la secuencia de cursos de Ciencias de la Computación. Su 
-              objetivo es proporcionar a los estudiantes las bases conceptuales y prácticas del diseño de algoritmos y su 
-              implementación en un lenguaje de programación. El curso se enfoca en desarrollar el pensamiento lógico-
-              matemático y la resolución de problemas mediante la programación, con un enfoque en la aplicación práctica y 
-              la resolución de problemas.
+              {courseData.information}
             </p>
           </div>
         )}
@@ -162,7 +209,7 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
             <h2 className="text-lg lg:text-xl font-bold mb-4 text-black">Material del Curso</h2>
             <p className="text-gray-700 text-sm lg:text-base">
               Aquí encontrarás todos los materiales de estudio, documentos, presentaciones y recursos adicionales 
-              para el curso de Programación I.
+              para el curso de {courseData.name}.
             </p>
           </div>
         )}
@@ -171,7 +218,7 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
           <div className="bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] p-4 lg:p-6">
             <h2 className="text-lg lg:text-xl font-bold mb-4 text-black">Profesores</h2>
             <p className="text-gray-700 text-sm lg:text-base">
-              Información sobre los profesores que imparten el curso de Programación I, sus horarios y 
+              Información sobre los profesores que imparten el curso de {courseData.name}, sus horarios y 
               métodos de contacto.
             </p>
           </div>
