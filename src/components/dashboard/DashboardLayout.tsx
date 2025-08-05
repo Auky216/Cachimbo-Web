@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { use, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
   Home, 
@@ -13,9 +13,13 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-// Simulando las imágenes importadas
 import BookIcon from '@/assets/dashboard/book.png';
 import CachimboLogo from '@/assets/cachimbo-logo.png';
+
+import { useUserStore } from '@/store/user.store';
+import { useCourseStore } from '@/store/course.store';
+import { useAuth } from '@/hooks/useAuth';
+import {getUserCourses} from '@/lib/api/course.api';
 
 interface UnifiedDashboardLayoutProps {
   children: React.ReactNode;
@@ -24,27 +28,50 @@ interface UnifiedDashboardLayoutProps {
 const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { courses: storeCourses } = useCourseStore();
+  const { user, setUser } = useUserStore();
+
+  // State for user courses
+  const [userCourses, setUserCourses] = React.useState<any[]>([]);
+
+  // Obtener datos del usuario
+  const userId = user?.id;
+  const userName = user?.name;
+  const userNickname = user?.nickname;
+  const userPhoto = user?.urlPhoto || CachimboLogo.src;
+
+  console.log('User ID : ', userId);
 
   const navigationItems = [
     { id: 'home', icon: Home, label: 'Inicio', route: '/dashboard' },
-    { id: 'courses', icon: BookOpen, desktopIcon: BookOpen, mobileIcon: Grid3X3, label: 'Cursos', route: '/dashboard/course' },
+    { id: 'courses', icon: Grid3X3, label: 'Cursos', route: '/dashboard/course' },
     { id: 'materials', icon: FileText, label: 'Materiales', route: '/dashboard/library' },
     { id: 'organizations', icon: Users, label: 'Organizaciones', route: '/dashboard/organizations' },
-    { id: 'settings', icon: Settings, label: 'Perfil', route: '/dashboard/perfil' },
+    { id: 'settings', icon: User, label: 'Perfil', route: '/dashboard/perfil' },
   ];
 
-  const courses = [
-    { id: 1, name: 'Programación I', icon: BookIcon },
-    { id: 2, name: 'Programación II', icon: BookIcon },
-    { id: 3, name: 'Cálculo de una Variable', icon: BookIcon },
-  ];
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (userId) {
+        try {
+          const userCoursesData = await getUserCourses(userId);
+          console.log('User Courses:', userCoursesData);
+          setUserCourses(userCoursesData);
+        } catch (error) {
+          console.error('Error fetching user courses:', error);
+        }
+      }
+    };
+
+    fetchCourses();
+  }, [userId]);
 
   const handleNavClick = (route: string) => {
     console.log(`Navegando a: ${route}`);
     router.push(route);
   };
 
-  const handleCourseClick = (courseId: number) => {
+  const handleCourseClick = (courseId: string) => {
     console.log(`Abriendo curso: ${courseId}`);
     router.push(`/dashboard/courses/${courseId}`);
   };
@@ -93,36 +120,41 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
   const CoursesSection = () => (
     <div className="mb-6">
       <h2 className="text-lg font-bold text-black mb-4">Cursos</h2>
-      
+
       <div className="space-y-3">
-        {courses.map((course) => (
-          <button
-            key={course.id}
-            onClick={() => handleCourseClick(course.id)}
-            className="w-full flex items-center p-3 bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] hover:shadow-[5px_5px_0_0_#000000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all duration-150 active:translate-x-1 active:translate-y-1 active:shadow-none"
-          >
-            <img src={BookIcon.src} alt="Book Icon" className="w-12 h-12 object-contain mr-3" />
-            <img 
-              src={course.icon.src} 
-              alt={course.name} 
-              className="w-6 h-6 object-contain mr-3 hidden lg:block" 
-            />
-            <div className="flex-1 text-left">
-              <h3 className="font-semibold text-black text-sm">{course.name}</h3>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          </button>
-        ))}
+        {userCourses.length > 0 ? (
+          userCourses.slice(0, 3).map((courseData) => (
+            <button
+              key={courseData.courseId}
+              onClick={() => handleCourseClick(courseData.courseId)}
+              className="w-full flex items-center p-3 bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] hover:shadow-[5px_5px_0_0_#000000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all duration-150 active:translate-x-1 active:translate-y-1 active:shadow-none"
+            >
+              <img src={BookIcon.src} alt="Book Icon" className="w-12 h-12 object-contain mr-3" />
+              
+              <div className="flex-1 text-left">
+                <h3 className="font-semibold text-black text-sm">{courseData.course.name}</h3>
+                <p className="text-xs text-gray-500">{courseData.course.followers} seguidores</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            </button>
+          ))
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-gray-500 text-sm">No hay cursos disponibles</p>
+          </div>
+        )}
       </div>
 
-      <div className="mt-4 text-right">
-        <button 
-          onClick={() => router.push('/dashboard/courses')}
-          className="text-sm text-gray-600 hover:text-black font-medium"
-        >
-          Ver Todos
-        </button>
-      </div>
+      {userCourses.length > 0 && (
+        <div className="mt-4 text-right">
+          <button 
+            onClick={() => router.push('/dashboard/course')}
+            className="text-sm text-gray-600 hover:text-black font-medium"
+          >
+            Ver Todos ({userCourses.length})
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -145,8 +177,9 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
 
             {/* Navigation */}
             <nav className="flex-1 px-4 py-6 space-y-2">
+              {/* Desktop Navigation */}
               {navigationItems.map((item) => {
-                const Icon = item.desktopIcon || item.icon;
+                const Icon = item.icon;
                 const isActive = isActiveRoute(item.route);
                 return (
                   <button
@@ -163,7 +196,11 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
                       }
                     `}
                   >
-                    <Icon className="w-5 h-5 mr-3" />
+                    {item.id === 'settings' ? (
+                      <img src={userPhoto} alt="User" className="w-5 h-5 mr-2 rounded-full border border-black" />
+                    ) : (
+                      <Icon className="w-5 h-5 mr-2" />
+                    )}
                     <span>{item.label}</span>
                   </button>
                 );
@@ -173,12 +210,14 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
             {/* User Info */}
             <div className="p-4 border-t-2 border-black">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gray-300 rounded-full border-2 border-black flex items-center justify-center">
-                  <User className="w-5 h-5" />
-                </div>
+                <img 
+                  src={userPhoto} 
+                  alt="User" 
+                  className="w-10 h-10 rounded-full border-2 border-black object-cover" 
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-black truncate">Adrian Auqui</p>
-                  <p className="text-xs text-gray-600 truncate">@adrian_dev</p>
+                  <p className="text-sm font-medium text-black truncate">{userName }</p>
+                  <p className="text-xs text-gray-600 truncate">@{userNickname}</p>
                 </div>
               </div>
             </div>
@@ -192,7 +231,7 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
               <>
                 <div className="mb-6">
                   <h1 className="text-2xl font-bold text-black mb-4">
-                    ¡Hola Adrian Auqui! 👋
+                    ¡Hola {userName} ! 👋
                   </h1>
                 </div>
                 <WelcomeCards />
@@ -241,8 +280,9 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
         {/* Bottom Navigation */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-black z-40 max-w-md mx-auto">
           <div className="flex justify-around py-2">
+            {/* Mobile Navigation */}
             {navigationItems.map((item) => {
-              const Icon = item.mobileIcon || item.icon;
+              const Icon = item.icon;
               const isActive = isActiveRoute(item.route);
               return (
                 <button
@@ -257,10 +297,14 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
                     }
                   `}
                 >
-                  <Icon 
-                    className={`w-5 h-5 mb-1 ${isActive ? 'fill-current' : ''}`}
-                    fill={isActive ? 'currentColor' : 'none'}
-                  />
+                  {item.id === 'settings' ? (
+                    <img src={userPhoto} alt="User" className="w-5 h-5 mb-1 rounded-full border border-black" />
+                  ) : (
+                    <Icon 
+                      className={`w-5 h-5 mb-1 ${isActive ? 'fill-current' : ''}`}
+                      fill={isActive ? 'currentColor' : 'none'}
+                    />
+                  )}
                   <span className="text-xs font-medium truncate">{item.label}</span>
                 </button>
               );
