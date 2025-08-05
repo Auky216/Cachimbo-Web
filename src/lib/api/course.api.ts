@@ -11,3 +11,9 @@ export function getCourseById (idCourse: string) {
     credentials: 'include'
   }).then(response => response.json());
 }
+
+export function getCourseComments (idCourse: string, numberPage: number) {
+  return fetch(`${API_URL}/course-comments/course/${idCourse}?page=${numberPage}&limit=5`, {
+    credentials: 'include'
+  }).then(response => response.json());
+}

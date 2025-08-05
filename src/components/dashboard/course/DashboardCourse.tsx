@@ -13,7 +13,7 @@ import {
   MoreHorizontal
 } from 'lucide-react';
 
-import { getCourseById } from '@/lib/api/course.api';
+import { getCourseById, getCourseComments } from '@/lib/api/course.api';
 
 const CourseDetailPage = ({ courseId }: { courseId: string }) => {
 
@@ -24,6 +24,11 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
   const [courseData, setCourseData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const [paginationComment, setPaginationComment] = useState(1);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [pagination, setPagination] = useState<any>(null);
+
   // You can now use courseId throughout your component
   console.log('Course ID:', courseId);
 
@@ -33,53 +38,15 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
     { id: 'profesores', label: 'Profesores' }
   ];
 
-  const comments = [
-    {
-      id: 1,
-      user: {
-        name: 'Carlos Paz',
-        avatar: '👨‍💻',
-        nickname: '@carlos.paz'
-      },
-      date: '15 Junio, 2025',
-      content: 'El curso es bueno para aprender Python 10/10 papu',
-      likes: 0,
-      replies: 0
-    },
-    {
-      id: 2,
-      user: {
-        name: 'Oreo',
-        avatar: '🍪',
-        nickname: '@oreo'
-      },
-      date: '5 Enero, 2024',
-      content: 'Si no te gusta programar, mejor ni lo lleves',
-      likes: 1,
-      replies: 0
-    },
-    {
-      id: 3,
-      user: {
-        name: 'Maria',
-        avatar: '👩‍🎓',
-        nickname: '@maria'
-      },
-      date: '14 Mayo, 2024',
-      content: 'Soy bica y puedo decir que tiene su nivel D:',
-      likes: 0,
-      replies: 0
-    }
-  ];
-
-
   useEffect(() => {
     const loadCourseData = async () => {
       try {
         setLoading(true);
         console.log('Cargando datos del curso con ID:', courseId);
+
         const data = await getCourseById(courseId);
         console.log('Datos del curso:', data);
+
         setCourseData(data);
       } catch (error) {
         console.error('Error loading course data:', error);
@@ -92,6 +59,30 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
       loadCourseData();
     }
   }, [courseId]);
+
+  // New useEffect for loading comments
+  useEffect(() => {
+    const loadComments = async () => {
+      try {
+        setCommentsLoading(true);
+        console.log('Cargando comentarios del curso, página:', paginationComment);
+
+        const courseComments = await getCourseComments(courseId, paginationComment);
+        console.log('Comentarios del curso:', courseComments);
+
+        setComments(courseComments.data);
+        setPagination(courseComments.pagination);
+      } catch (error) {
+        console.error('Error loading comments:', error);
+      } finally {
+        setCommentsLoading(false);
+      }
+    };
+
+    if (courseId) {
+      loadComments();
+    }
+  }, [courseId, paginationComment]);
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
@@ -109,6 +100,27 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite);
     console.log('Favorite toggled:', !isFavorite);
+  };
+
+  const handlePreviousPage = () => {
+    if (pagination?.hasPrevPage) {
+      setPaginationComment(paginationComment - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (pagination?.hasNextPage) {
+      setPaginationComment(paginationComment + 1);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
   };
 
   if (loading) {
@@ -227,59 +239,131 @@ const CourseDetailPage = ({ courseId }: { courseId: string }) => {
 
       {/* Comments Section */}
       <div className="mb-6">
-        <h2 className="text-lg lg:text-xl font-bold mb-4 text-black">Comentarios</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg lg:text-xl font-bold text-black">
+            Comentarios {pagination && `(${pagination.totalCount})`}
+          </h2>
+          {pagination && pagination.totalPages > 1 && (
+            <div className="text-sm text-gray-600">
+              Página {pagination.currentPage} de {pagination.totalPages}
+            </div>
+          )}
+        </div>
         
         {/* Comments List */}
         <div className="space-y-4 mb-6">
-          {comments.map((comment) => (
-            <div
-              key={comment.id}
-              className="bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] p-4"
-            >
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-gray-200 rounded-full border-2 border-black flex items-center justify-center text-lg">
-                    {comment.user.avatar}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h4 className="text-sm font-bold text-black">{comment.user.name}</h4>
-                    <span className="text-xs text-gray-500">{comment.user.nickname}</span>
-                    <span className="text-xs text-gray-400">•</span>
-                    <span className="text-xs text-gray-400">{comment.date}</span>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-3">{comment.content}</p>
-                  <div className="flex items-center space-x-4">
-                    <button className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors">
-                      <Heart className="w-4 h-4" />
-                      <span className="text-xs">{comment.likes}</span>
-                    </button>
-                    <button className="flex items-center space-x-1 text-gray-500 hover:text-blue-500 transition-colors">
-                      <MessageCircle className="w-4 h-4" />
-                      <span className="text-xs">{comment.replies}</span>
-                    </button>
-                  </div>
-                </div>
-                <button className="text-gray-400 hover:text-gray-600">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              </div>
+          {commentsLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-2"></div>
+              <p className="text-gray-600">Cargando comentarios...</p>
             </div>
-          ))}
+          ) : comments.length > 0 ? (
+            comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] p-4"
+              >
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full border-2 border-black flex items-center justify-center overflow-hidden">
+                      {comment.user.urlPhoto ? (
+                        <img 
+                          src={comment.user.urlPhoto} 
+                          alt={comment.user.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-lg font-bold text-purple-500">
+                          {comment.user.name.charAt(0)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <h4 className="text-sm font-bold text-black">
+                        {comment.isAnonymous ? 'Anónimo' : `@${comment.user.nickname}`}
+                      </h4>
+                      <span className="text-xs text-gray-400">•</span>
+                      <span className="text-xs text-gray-400">{formatDate(comment.date)}</span>
+                    </div>
+                    
+                    {/* Rating Stars */}
+                    <div className="flex items-center space-x-1 mb-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-3 h-3 ${
+                            star <= comment.calification 
+                              ? 'text-yellow-400 fill-current' 
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                      <span className="text-xs text-gray-500 ml-1">
+                        ({comment.calification}/5)
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-700 mb-3">{comment.comment}</p>
+                    <div className="flex items-center space-x-4">
+                      <button className="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors">
+                        <Heart className="w-4 h-4" />
+                        <span className="text-xs">0</span>
+                      </button>
+                      <button className="flex items-center space-x-1 text-gray-500 hover:text-blue-500 transition-colors">
+                        <MessageCircle className="w-4 h-4" />
+                        <span className="text-xs">0</span>
+                      </button>
+                    </div>
+                  </div>
+                  <button className="text-gray-400 hover:text-gray-600">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000]">
+              <p className="text-gray-600">No hay comentarios aún</p>
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between mb-6">
-        <button className="flex items-center px-4 py-2 bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] hover:shadow-[5px_5px_0_0_#000000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all duration-150 active:translate-x-1 active:translate-y-1 active:shadow-none font-medium text-sm lg:text-base">
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          Anterior
-        </button>
-        <button className="flex items-center px-4 py-2 bg-black text-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] hover:shadow-[5px_5px_0_0_#000000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all duration-150 active:translate-x-1 active:translate-y-1 active:shadow-none font-medium text-sm lg:text-base">
-          Siguiente
-          <ChevronRight className="w-4 h-4 ml-1" />
-        </button>
+        {/* Pagination Controls */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex justify-between items-center">
+            <button 
+              onClick={handlePreviousPage}
+              disabled={!pagination.hasPrevPage}
+              className={`flex items-center px-4 py-2 border-2 border-black rounded-lg font-medium text-sm lg:text-base transition-all duration-150 ${
+                pagination.hasPrevPage 
+                  ? 'bg-white text-black shadow-[3px_3px_0_0_#000000] hover:shadow-[5px_5px_0_0_#000000] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-1 active:translate-y-1 active:shadow-none'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Anterior
+            </button>
+            
+            <span className="text-sm text-gray-600">
+              {pagination.currentPage} / {pagination.totalPages}
+            </span>
+            
+            <button 
+              onClick={handleNextPage}
+              disabled={!pagination.hasNextPage}
+              className={`flex items-center px-4 py-2 border-2 border-black rounded-lg font-medium text-sm lg:text-base transition-all duration-150 ${
+                pagination.hasNextPage 
+                  ? 'bg-black text-white shadow-[3px_3px_0_0_#000000] hover:shadow-[5px_5px_0_0_#000000] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-1 active:translate-y-1 active:shadow-none'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Siguiente
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Comment Form */}
