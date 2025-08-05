@@ -73,7 +73,7 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
 
   const handleCourseClick = (courseId: string) => {
     console.log(`Abriendo curso: ${courseId}`);
-    router.push(`/dashboard/courses/${courseId}`);
+    router.push(`/dashboard/course/${courseId}`);
   };
 
   const isActiveRoute = (route: string) => {
