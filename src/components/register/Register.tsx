@@ -12,6 +12,7 @@ import CareerStep from './ui/CareerStep';
 import NicknameStep from './ui/NicknameStep';
 import WelcomeStep from './ui/WelcomeStep';
 import Button1 from './ui/Button1';
+import { useToken } from '@/hooks/useToken';
 
 export default function FinalRegister() {
   const router = useRouter();
@@ -30,6 +31,8 @@ export default function FinalRegister() {
   const { setAuthenticated, setName, setLastName, setEmail, setUrlPhoto, urlPhoto } = useAuthStore();
   const { setUser } = useUserStore();
 
+// ✅ NUEVA LÍNEA:
+const { accessToken, isAuthenticated, setToken } = useToken();
   // Obtener datos de Google al cargar el componente
   useEffect(() => {
     const fetchGoogleData = async () => {
@@ -106,10 +109,11 @@ export default function FinalRegister() {
       const response = await completeRegistration(registrationData);
       
       if (response.tokens) {
-        // Guardar tokens en localStorage
-        localStorage.setItem('access_token', response.tokens.access_token);
-        localStorage.setItem('refresh_token', response.tokens.refresh_token);
-        
+
+
+        // Actualizar el store de tokens
+        setToken(response.tokens.access_token, response.tokens.refresh_token);
+
         // Actualizar stores
         setAuthenticated(true);
         setUser({

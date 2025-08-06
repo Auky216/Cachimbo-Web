@@ -17,9 +17,12 @@ import BookIcon from '@/assets/dashboard/book.png';
 import CachimboLogo from '@/assets/cachimbo-logo.png';
 
 import { useUserStore } from '@/store/user.store';
+import { useAuthStore } from '@/store/auth.store';
 import { useCourseStore } from '@/store/course.store';
-import { useAuth } from '@/hooks/useAuth';
-import {getUserCourses} from '@/lib/api/course.api';
+import { useTokenStore } from '@/store/token.store';
+import { useToken } from '@/hooks/useToken';
+import { getUserCourses } from '@/lib/api/course.api';
+import { getUserData } from '@/lib/api/login.api';
 
 interface UnifiedDashboardLayoutProps {
   children: React.ReactNode;
@@ -30,9 +33,12 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
   const pathname = usePathname();
   const { courses: storeCourses } = useCourseStore();
   const { user, setUser } = useUserStore();
+  const { setAuthenticated, setName, setLastName, setEmail, setUrlPhoto } = useAuthStore();
+  const { setToken, isAuthenticated } = useToken();
 
   // State for user courses
   const [userCourses, setUserCourses] = React.useState<any[]>([]);
+  const [isLoadingUser, setIsLoadingUser] = React.useState(true);
 
   // Obtener datos del usuario
   const userId = user?.id;
@@ -50,15 +56,100 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
     { id: 'settings', icon: User, label: 'Perfil', route: '/dashboard/perfil' },
   ];
 
+  // 🍪 CARGAR DATOS DEL USUARIO DESDE COOKIES (para usuarios que ya existen)
+  useEffect(() => {
+    const loadUserFromCookies = async () => {
+      setIsLoadingUser(true);
+      
+      try {
+        // Si ya tenemos usuario cargado, no hacer nada
+        if (user && user.id) {
+          console.log('✅ Usuario ya cargado en el store');
+          setIsLoadingUser(false);
+          return;
+        }
+
+        // Intentar obtener datos del usuario desde cookies
+        console.log('🍪 Intentando cargar datos del usuario desde cookies...');
+        const userData = await getUserData();
+        
+        if (userData && !userData.error) {
+          console.log('🎯 DATOS DE USUARIO DESDE COOKIES:', userData);
+          
+          // 🔐 Si el backend envía tokens, guardarlos en el store de Zustand
+          if (userData.tokens && userData.tokens.access_token && userData.tokens.refresh_token) {
+            console.log('🔑 TOKENS ENCONTRADOS EN LA RESPUESTA:', userData.tokens);
+            console.log('💾 Guardando tokens en Zustand store...');
+            
+            setToken(userData.tokens.access_token, userData.tokens.refresh_token);
+            
+            console.log('✅ Tokens guardados exitosamente en el store');
+            console.log('🔐 Access Token:', userData.tokens.access_token.substring(0, 20) + '...');
+            console.log('🔄 Refresh Token:', userData.tokens.refresh_token.substring(0, 20) + '...');
+          } else {
+            console.log('⚠️ No se encontraron tokens en la respuesta del backend');
+          }
+          
+          // Actualizar store de autenticación
+          setAuthenticated(true);
+          setName(userData.name);
+          setLastName(userData.lastname);
+          setEmail(userData.email);
+          setUrlPhoto(userData.urlPhoto);
+
+          // Actualizar store de usuario
+          setUser({
+            id: userData.id || 'temp-id', // El backend debería enviar el ID
+            email: userData.email,
+            name: userData.name,
+            lastName: userData.lastname,
+            nickname: userData.nickname,
+            stage: userData.stage || '',
+            startYear: userData.startYear || 0,
+            career: userData.career || '',
+            isActive: userData.isActivate || true,
+            urlPhoto: userData.urlPhoto || '',
+          });
+
+          console.log('✅ Usuario cargado correctamente desde cookies');
+          
+          // 🔍 Verificar que los tokens se guardaron en el store
+          setTimeout(() => {
+            const { token_access, token_refresh } = useTokenStore.getState();
+            console.log('🔍 Verificación de tokens en el store:');
+            console.log('   - Access Token guardado:', !!token_access);
+            console.log('   - Refresh Token guardado:', !!token_refresh);
+            console.log('   - Usuario autenticado:', !!token_access || !!token_refresh);
+          }, 100);
+          
+        } else {
+          console.log('❌ No hay datos de usuario en cookies - usuario no autenticado');
+          // Si no hay datos de usuario, redirigir al login
+          router.push('/');
+        }
+        
+      } catch (error) {
+        console.error('❌ Error al cargar datos del usuario:', error);
+        // En caso de error, redirigir al login
+        router.push('/');
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    loadUserFromCookies();
+  }, [user, setUser, setAuthenticated, setName, setLastName, setEmail, setUrlPhoto, router]);
+
+  // Cargar cursos del usuario
   useEffect(() => {
     const fetchCourses = async () => {
       if (userId) {
         try {
           const userCoursesData = await getUserCourses(userId);
-          console.log('User Courses:', userCoursesData);
+          console.log('📚 User Courses:', userCoursesData);
           setUserCourses(userCoursesData);
         } catch (error) {
-          console.error('Error fetching user courses:', error);
+          console.error('❌ Error fetching user courses:', error);
         }
       }
     };
@@ -84,6 +175,18 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
   };
 
   const isHomePage = pathname === '/dashboard';
+
+  // Mostrar loading mientras se cargan los datos del usuario
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-lg text-gray-600">Cargando datos del usuario...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Componente para las tarjetas de bienvenida
   const WelcomeCards = () => (
