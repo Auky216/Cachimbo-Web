@@ -1,10 +1,13 @@
+// Register.tsx - PARTE 1: IMPORTS Y DATOS DE GOOGLE
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { useUserStore } from '@/store/user.store';
-import { getRegistrationData, completeRegistration } from '@/lib/api/login.api';
+// 👇 CAMBIO: Usar nuevas funciones
+import { extractGoogleDataFromUrl, completeRegistration } from '@/lib/api/login.api';
 import ProgressHeader from './ui/ProgressHeader';
 import StageStep from './ui/StageStep';
 import YearStep from './ui/YearStep';
@@ -30,36 +33,29 @@ export default function FinalRegister() {
   // Stores
   const { setAuthenticated, setName, setLastName, setEmail, setUrlPhoto, urlPhoto } = useAuthStore();
   const { setUser } = useUserStore();
+  const { accessToken, isAuthenticated, setToken } = useToken();
 
-// ✅ NUEVA LÍNEA:
-const { accessToken, isAuthenticated, setToken } = useToken();
-  // Obtener datos de Google al cargar el componente
+  // 👇 CAMBIO: Nueva forma de obtener datos de Google
   useEffect(() => {
-    const fetchGoogleData = async () => {
-      try {
-        const response = await getRegistrationData();
-        console.log('Datos de Google:', response);
-        
-        if (response && !response.error) {
-          setUserName(`${response.name} ${response.lastname}`);
-          setGoogleData(response);
-          // Guardar en el store
-          setName(response.name);
-          setLastName(response.lastname);
-          setEmail(response.email);
-          setUrlPhoto(response.urlPhoto);
-        } else {
-          // Si no hay datos de registro, redirigir al login
-          console.error('No hay datos de registro disponibles');
-          router.push('/');
-        }
-      } catch (error) {
-        console.error('Error al obtener datos de Google:', error);
-        router.push('/');
-      }
-    };
-
-    fetchGoogleData();
+    // Extraer datos de Google desde la URL
+    const googleDataFromUrl = extractGoogleDataFromUrl();
+    
+    if (googleDataFromUrl) {
+      console.log('✅ Datos de Google encontrados:', googleDataFromUrl);
+      
+      setUserName(`${googleDataFromUrl.name} ${googleDataFromUrl.lastname}`);
+      setGoogleData(googleDataFromUrl);
+      
+      // Guardar en el store
+      setName(googleDataFromUrl.name);
+      setLastName(googleDataFromUrl.lastname);
+      setEmail(googleDataFromUrl.email);
+      setUrlPhoto(googleDataFromUrl.urlPhoto);
+    } else {
+      console.error('❌ No hay datos de Google en la URL');
+      console.log('🔄 Redirigiendo al login...');
+      router.push('/');
+    }
   }, [setName, setLastName, setEmail, setUrlPhoto, router]);
 
   const totalSteps = 5;
@@ -86,7 +82,7 @@ const { accessToken, isAuthenticated, setToken } = useToken();
 
   const handleCompleteRegistration = async () => {
     if (!googleData) {
-      console.error('No hay datos de Google disponibles');
+      console.error('❌ No hay datos de Google disponibles');
       return;
     }
 
@@ -104,17 +100,21 @@ const { accessToken, isAuthenticated, setToken } = useToken();
         career: data.career,
       };
 
-      console.log('Enviando datos de registro:', registrationData);
+      console.log('📝 Enviando datos de registro:', registrationData);
       
+      // 👇 CAMBIO: La función ya guarda los tokens automáticamente
       const response = await completeRegistration(registrationData);
       
-      if (response.tokens) {
-
+      console.log('✅ Respuesta del registro:', response);
+      
+      // 👇 CAMBIO: Verificar estructura de respuesta actualizada
+      if (response.access_token && response.refresh_token) {
+        console.log('🎫 Tokens recibidos correctamente');
 
         // Actualizar el store de tokens
-        setToken(response.tokens.access_token, response.tokens.refresh_token);
+        setToken(response.access_token, response.refresh_token);
 
-        // Actualizar stores
+        // Actualizar stores con datos del usuario
         setAuthenticated(true);
         setUser({
           id: response.user.id,
@@ -129,15 +129,17 @@ const { accessToken, isAuthenticated, setToken } = useToken();
           urlPhoto: googleData.urlPhoto || '',
         });
 
-        console.log('Registro completado exitosamente');
+        console.log('✅ Registro completado exitosamente');
+        console.log('🔄 Redirigiendo al dashboard...');
         
         // Redirigir al dashboard
         router.push('/dashboard');
       } else {
-        console.error('No se recibieron tokens en la respuesta');
+        console.error('❌ No se recibieron tokens en la respuesta:', response);
+        // Mostrar error al usuario
       }
     } catch (error) {
-      console.error('Error al completar el registro:', error);
+      console.error('❌ Error al completar el registro:', error);
       // Aquí podrías mostrar un mensaje de error al usuario
     } finally {
       setIsLoading(false);

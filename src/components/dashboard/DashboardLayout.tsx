@@ -1,39 +1,41 @@
 "use client";
 
-import React, { use, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { 
-  Home, 
-  BookOpen, 
-  Users, 
+import React, { use, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import {
+  Home,
+  BookOpen,
+  Users,
   Settings,
   FileText,
   User,
   Grid3X3,
-  ChevronRight
-} from 'lucide-react';
+  ChevronRight,
+} from "lucide-react";
 
-import BookIcon from '@/assets/dashboard/book.png';
-import CachimboLogo from '@/assets/cachimbo-logo.png';
+import BookIcon from "@/assets/dashboard/book.png";
+import CachimboLogo from "@/assets/cachimbo-logo.png";
 
-import { useUserStore } from '@/store/user.store';
-import { useAuthStore } from '@/store/auth.store';
-import { useCourseStore } from '@/store/course.store';
-import { useTokenStore } from '@/store/token.store';
-import { useToken } from '@/hooks/useToken';
-import { getUserCourses } from '@/lib/api/course.api';
-import { getUserData } from '@/lib/api/login.api';
-
+import { useUserStore } from "@/store/user.store";
+import { useAuthStore } from "@/store/auth.store";
+import { useCourseStore } from "@/store/course.store";
+import { useTokenStore } from "@/store/token.store";
+import { useToken } from "@/hooks/useToken";
+import { getUserCourses } from "@/lib/api/course.api";
+import { getProfile, extractTokensFromUrl } from "@/lib/api/login.api";
 interface UnifiedDashboardLayoutProps {
   children: React.ReactNode;
 }
 
-const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ children }) => {
+const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({
+  children,
+}) => {
   const router = useRouter();
   const pathname = usePathname();
   const { courses: storeCourses } = useCourseStore();
   const { user, setUser } = useUserStore();
-  const { setAuthenticated, setName, setLastName, setEmail, setUrlPhoto } = useAuthStore();
+  const { setAuthenticated, setName, setLastName, setEmail, setUrlPhoto } =
+    useAuthStore();
   const { setToken, isAuthenticated } = useToken();
 
   // State for user courses
@@ -46,110 +48,115 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
   const userNickname = user?.nickname;
   const userPhoto = user?.urlPhoto || CachimboLogo.src;
 
-  console.log('User ID : ', userId);
+  console.log("User ID : ", userId);
 
   const navigationItems = [
-    { id: 'home', icon: Home, label: 'Inicio', route: '/dashboard' },
-    { id: 'courses', icon: Grid3X3, label: 'Cursos', route: '/dashboard/course' },
-    { id: 'materials', icon: FileText, label: 'Materiales', route: '/dashboard/library' },
-    { id: 'organizations', icon: Users, label: 'Organizaciones', route: '/dashboard/organizations' },
-    { id: 'settings', icon: User, label: 'Perfil', route: '/dashboard/perfil' },
+    { id: "home", icon: Home, label: "Inicio", route: "/dashboard" },
+    {
+      id: "courses",
+      icon: Grid3X3,
+      label: "Cursos",
+      route: "/dashboard/course",
+    },
+    {
+      id: "materials",
+      icon: FileText,
+      label: "Materiales",
+      route: "/dashboard/library",
+    },
+    {
+      id: "organizations",
+      icon: Users,
+      label: "Organizaciones",
+      route: "/dashboard/organizations",
+    },
+    { id: "settings", icon: User, label: "Perfil", route: "/dashboard/perfil" },
   ];
 
   // 🍪 CARGAR DATOS DEL USUARIO DESDE COOKIES (para usuarios que ya existen)
   useEffect(() => {
-    const loadUserFromCookies = async () => {
+    const loadUserData = async () => {
       setIsLoadingUser(true);
-      
+
       try {
         // Si ya tenemos usuario cargado, no hacer nada
         if (user && user.id) {
-          console.log('✅ Usuario ya cargado en el store');
+          console.log("✅ Usuario ya cargado en el store");
           setIsLoadingUser(false);
           return;
         }
 
-        // Intentar obtener datos del usuario desde cookies
-        console.log('🍪 Intentando cargar datos del usuario desde cookies...');
-        const userData = await getUserData();
-        
-        if (userData && !userData.error) {
-          console.log('🎯 DATOS DE USUARIO DESDE COOKIES:', userData);
-          
-          // 🔐 Si el backend envía tokens, guardarlos en el store de Zustand
-          if (userData.tokens && userData.tokens.access_token && userData.tokens.refresh_token) {
-            console.log('🔑 TOKENS ENCONTRADOS EN LA RESPUESTA:', userData.tokens);
-            console.log('💾 Guardando tokens en Zustand store...');
-            
-            setToken(userData.tokens.access_token, userData.tokens.refresh_token);
-            
-            console.log('✅ Tokens guardados exitosamente en el store');
-            console.log('🔐 Access Token:', userData.tokens.access_token.substring(0, 20) + '...');
-            console.log('🔄 Refresh Token:', userData.tokens.refresh_token.substring(0, 20) + '...');
-          } else {
-            console.log('⚠️ No se encontraron tokens en la respuesta del backend');
-          }
-          
-          // Actualizar store de autenticación
-          setAuthenticated(true);
-          setName(userData.name);
-          setLastName(userData.lastname);
-          setEmail(userData.email);
-          setUrlPhoto(userData.urlPhoto);
-
-          // Actualizar store de usuario
-          setUser({
-            id: userData.id || 'temp-id', // El backend debería enviar el ID
-            email: userData.email,
-            name: userData.name,
-            lastName: userData.lastname,
-            nickname: userData.nickname,
-            stage: userData.stage || '',
-            startYear: userData.startYear || 0,
-            career: userData.career || '',
-            isActive: userData.isActivate || true,
-            urlPhoto: userData.urlPhoto || '',
-          });
-
-          console.log('✅ Usuario cargado correctamente desde cookies');
-          
-          // 🔍 Verificar que los tokens se guardaron en el store
-          setTimeout(() => {
-            const { token_access, token_refresh } = useTokenStore.getState();
-            console.log('🔍 Verificación de tokens en el store:');
-            console.log('   - Access Token guardado:', !!token_access);
-            console.log('   - Refresh Token guardado:', !!token_refresh);
-            console.log('   - Usuario autenticado:', !!token_access || !!token_refresh);
-          }, 100);
-          
-        } else {
-          console.log('❌ No hay datos de usuario en cookies - usuario no autenticado');
-          // Si no hay datos de usuario, redirigir al login
-          router.push('/');
+        // 1. Primero intentar extraer tokens de la URL
+        const tokensFromUrl = extractTokensFromUrl();
+        if (tokensFromUrl) {
+          console.log("🎫 Tokens extraídos de URL");
+          setToken(tokensFromUrl.access_token, tokensFromUrl.refresh_token);
         }
-        
+
+        // 2. Si hay tokens (de URL o localStorage), obtener perfil
+        const accessToken = localStorage.getItem("access_token");
+        if (accessToken) {
+          console.log("📄 Obteniendo perfil del usuario...");
+          const userData = await getProfile();
+
+          if (userData && userData.user) {
+            console.log("✅ Perfil obtenido:", userData.user);
+
+            // Actualizar stores
+            setAuthenticated(true);
+            setName(userData.user.name);
+            setLastName(userData.user.lastname);
+            setEmail(userData.user.email);
+            setUrlPhoto(userData.user.urlPhoto);
+
+            setUser({
+              id: userData.user.id,
+              email: userData.user.email,
+              name: userData.user.name,
+              lastName: userData.user.lastname,
+              nickname: userData.user.nickname,
+              stage: userData.user.stage || "",
+              startYear: userData.user.startYear || 0,
+              career: userData.user.career || "",
+              isActive: userData.user.isActive || true,
+              urlPhoto: userData.user.urlPhoto || "",
+            });
+          } else {
+            throw new Error("No se pudo obtener el perfil");
+          }
+        } else {
+          throw new Error("No hay tokens de acceso");
+        }
       } catch (error) {
-        console.error('❌ Error al cargar datos del usuario:', error);
-        // En caso de error, redirigir al login
-        router.push('/');
+        console.error("❌ Error al cargar datos del usuario:", error);
+        router.push("/");
       } finally {
         setIsLoadingUser(false);
       }
     };
 
-    loadUserFromCookies();
-  }, [user, setUser, setAuthenticated, setName, setLastName, setEmail, setUrlPhoto, router]);
-
+    loadUserData();
+  }, [
+    user,
+    setUser,
+    setAuthenticated,
+    setName,
+    setLastName,
+    setEmail,
+    setUrlPhoto,
+    router,
+    setToken,
+  ]);
   // Cargar cursos del usuario
   useEffect(() => {
     const fetchCourses = async () => {
       if (userId) {
         try {
           const userCoursesData = await getUserCourses(userId);
-          console.log('📚 User Courses:', userCoursesData);
+          console.log("📚 User Courses:", userCoursesData);
           setUserCourses(userCoursesData);
         } catch (error) {
-          console.error('❌ Error fetching user courses:', error);
+          console.error("❌ Error fetching user courses:", error);
         }
       }
     };
@@ -168,13 +175,13 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
   };
 
   const isActiveRoute = (route: string) => {
-    if (route === '/dashboard') {
-      return pathname === '/dashboard';
+    if (route === "/dashboard") {
+      return pathname === "/dashboard";
     }
     return pathname.startsWith(route);
   };
 
-  const isHomePage = pathname === '/dashboard';
+  const isHomePage = pathname === "/dashboard";
 
   // Mostrar loading mientras se cargan los datos del usuario
   if (isLoadingUser) {
@@ -182,7 +189,9 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-lg text-gray-600">Cargando datos del usuario...</p>
+          <p className="mt-4 text-lg text-gray-600">
+            Cargando datos del usuario...
+          </p>
         </div>
       </div>
     );
@@ -232,11 +241,19 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
               onClick={() => handleCourseClick(courseData.courseId)}
               className="w-full flex items-center p-3 bg-white border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000000] hover:shadow-[5px_5px_0_0_#000000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all duration-150 active:translate-x-1 active:translate-y-1 active:shadow-none"
             >
-              <img src={BookIcon.src} alt="Book Icon" className="w-12 h-12 object-contain mr-3" />
-              
+              <img
+                src={BookIcon.src}
+                alt="Book Icon"
+                className="w-12 h-12 object-contain mr-3"
+              />
+
               <div className="flex-1 text-left">
-                <h3 className="font-semibold text-black text-sm">{courseData.course.name}</h3>
-                <p className="text-xs text-gray-500">{courseData.course.followers} seguidores</p>
+                <h3 className="font-semibold text-black text-sm">
+                  {courseData.course.name}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {courseData.course.followers} seguidores
+                </p>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
             </button>
@@ -250,8 +267,8 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
 
       {userCourses.length > 0 && (
         <div className="mt-4 text-right">
-          <button 
-            onClick={() => router.push('/dashboard/course')}
+          <button
+            onClick={() => router.push("/dashboard/course")}
             className="text-sm text-gray-600 hover:text-black font-medium"
           >
             Ver Todos ({userCourses.length})
@@ -293,14 +310,19 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
                       transition-all duration-150 ease-in-out font-medium
                       hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_0_#000000]
                       active:translate-x-1 active:translate-y-1 active:shadow-none
-                      ${isActive 
-                        ? 'bg-purple-500 text-white shadow-[3px_3px_0_0_#7c3aed]' 
-                        : 'bg-white text-black shadow-[3px_3px_0_0_#000000] hover:bg-gray-50'
+                      ${
+                        isActive
+                          ? "bg-purple-500 text-white shadow-[3px_3px_0_0_#7c3aed]"
+                          : "bg-white text-black shadow-[3px_3px_0_0_#000000] hover:bg-gray-50"
                       }
                     `}
                   >
-                    {item.id === 'settings' ? (
-                      <img src={userPhoto} alt="User" className="w-5 h-5 mr-2 rounded-full border border-black" />
+                    {item.id === "settings" ? (
+                      <img
+                        src={userPhoto}
+                        alt="User"
+                        className="w-5 h-5 mr-2 rounded-full border border-black"
+                      />
                     ) : (
                       <Icon className="w-5 h-5 mr-2" />
                     )}
@@ -313,14 +335,22 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
             {/* User Info */}
             <div className="p-4 border-t-2 border-black">
               <div className="flex items-center space-x-3">
-                <img 
-                  src={userPhoto} 
-                  alt="User" 
-                  className="w-10 h-10 rounded-full border-2 border-black object-cover" 
+                <img
+                  src={userPhoto}
+                  alt="User"
+                  className="w-10 h-10 rounded-full border-2 border-black object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = CachimboLogo.src; // Fallback al logo
+                   
+                  }}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-black truncate">{userName }</p>
-                  <p className="text-xs text-gray-600 truncate">@{userNickname}</p>
+                  <p className="text-sm font-medium text-black truncate">
+                    {userName}
+                  </p>
+                  <p className="text-xs text-gray-600 truncate">
+                    @{userNickname}
+                  </p>
                 </div>
               </div>
             </div>
@@ -353,9 +383,9 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
           {/* Header con Logo */}
           <div className="flex items-center justify-center mb-4">
             <div className="relative">
-              <img 
-                src={CachimboLogo.src} 
-                alt="Cachimbo Logo" 
+              <img
+                src={CachimboLogo.src}
+                alt="Cachimbo Logo"
                 className="w-12 h-12 sm:w-16 sm:h-16 drop-shadow-lg"
               />
             </div>
@@ -375,9 +405,7 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
           )}
 
           {/* Children content */}
-          <div className="mb-6">
-            {children}
-          </div>
+          <div className="mb-6">{children}</div>
         </div>
 
         {/* Bottom Navigation */}
@@ -394,21 +422,30 @@ const UnifiedDashboardLayout: React.FC<UnifiedDashboardLayoutProps> = ({ childre
                   className={`
                     flex flex-col items-center justify-center py-2 px-1 min-w-0 flex-1
                     transition-all duration-150 ease-in-out
-                    ${isActive 
-                      ? 'text-purple-500' 
-                      : 'text-gray-400 hover:text-gray-600 active:text-purple-400'
+                    ${
+                      isActive
+                        ? "text-purple-500"
+                        : "text-gray-400 hover:text-gray-600 active:text-purple-400"
                     }
                   `}
                 >
-                  {item.id === 'settings' ? (
-                    <img src={userPhoto} alt="User" className="w-5 h-5 mb-1 rounded-full border border-black" />
+                  {item.id === "settings" ? (
+                    <img
+                      src={userPhoto}
+                      alt="User"
+                      className="w-5 h-5 mb-1 rounded-full border border-black"
+                    />
                   ) : (
-                    <Icon 
-                      className={`w-5 h-5 mb-1 ${isActive ? 'fill-current' : ''}`}
-                      fill={isActive ? 'currentColor' : 'none'}
+                    <Icon
+                      className={`w-5 h-5 mb-1 ${
+                        isActive ? "fill-current" : ""
+                      }`}
+                      fill={isActive ? "currentColor" : "none"}
                     />
                   )}
-                  <span className="text-xs font-medium truncate">{item.label}</span>
+                  <span className="text-xs font-medium truncate">
+                    {item.label}
+                  </span>
                 </button>
               );
             })}

@@ -34,7 +34,6 @@ export default function LogoHeader({
           <h1 className="text-3xl sm:text-4xl font-black text-black">
             {title}
           </h1>
-          <div className="w-full h-1 bg-purple-500 mt-1"></div>
         </div>
       </div>
       
